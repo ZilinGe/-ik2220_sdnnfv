@@ -34,12 +34,14 @@ class FW1 (Firewall):
 
         Firewall.__init__(self, connection, "FW1")
         self.rules = [
-            # [1, 'TCP', 'any', 'any', '100.0.0.40/28', '80', 'allow'], ##允许prz访问web
-            # [1, 'any', 'any', 'any', 'any', 'any', 'block'], ##禁止流向DMZ
-            # [2, 'any', 'any', 'any', 'any', 'any', 'allow']
-
-            [1, 'any', 'any', 'any', 'any', 'any', 'allow'], 
+            # [1, 'TCP', 'any', 'any', '100.0.0.40/28', '80', 'allow'],   ##允许prz访问web
+            [1, 'TCP', 'any', 'any', '100.0.0.45/32', '80', 'allow'],   ##允许prz访问web
+            [1, 'ICMP', 'any', 'any', '100.0.0.45/32', 'any', 'allow'],  # 允许ICMP ping 45
+            [1, 'any', 'any', 'any', 'any', 'any', 'block'],            ##禁止流向DMZ
             [2, 'any', 'any', 'any', 'any', 'any', 'allow']
+
+            # [1, 'any', 'any', 'any', 'any', 'any', 'allow'], 
+            # [2, 'any', 'any', 'any', 'any', 'any', 'allow']
         ]
 
 
@@ -52,7 +54,6 @@ class FW2 (Firewall):
         """
 
         # Hardware ports:
-# public-zone --------- 1 FW1 2 ------------ DmZ
 # DmZ ----------------- 1 FW2 2 ------------ private-zone
 
         Firewall.__init__(self, connection, "FW2")
@@ -62,8 +63,9 @@ class FW2 (Firewall):
             [2, 'any', 'any', 'any', 'any', 'any', 'allow']
 
 
-            # [2, 'TCP', 'any', 'any', '100.0.0.40/28', '80', 'allow'],
-            # [2, 'any', 'any', 'any', '100.0.0.40/28', 'any', 'block'],
+            # [2, 'TCP', 'any', 'any', '100.0.0.45/32', '80', 'allow'],
+            # [2, 'ICMP', 'any', 'any', '100.0.0.45/32', 'any', 'allow'],
+            # [1, 'any', 'any', 'any', '100.0.0.45/32', 'any', 'allow'],
             # [1, 'any', 'any', 'any', 'any', 'any', 'block'],
             # [2, 'any', 'any', 'any', 'any', 'any', 'allow']
         ]

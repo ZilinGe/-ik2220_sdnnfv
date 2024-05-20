@@ -20,7 +20,9 @@ class MyTopo(Topo):
 
         h2 = self.addHost('h2', ip='100.0.0.11/24')
 
-        h3 = self.addHost('h3', ip='100.0.0.50/24')
+        # h3 = self.addHost('h3', ip='100.0.0.50/24')
+        
+        h3 = self.addHost('h3', ip='10.0.0.50/24')
 
         h4 = self.addHost('h4', ip='10.0.0.51/24')
 
@@ -62,9 +64,9 @@ class MyTopo(Topo):
 
         self.addLink(fw2, sw2)
 
-        self.addLink(sw4, lb)
+        self.addLink(sw4, lb, port2 = 1)
 
-        self.addLink(lb, ids)
+        self.addLink(lb, ids, port1 = 2)
 
         self.addLink(ids, sw2)
 
@@ -88,12 +90,20 @@ class MyTopo(Topo):
 def startup_services(net):
     # Start http services and executing commands you require on each host...
     ### COMPLETE THIS PART ###
-    for ser in ["ws1", "ws2", "ws3"]:
+    # for ser in ["ws1", "ws2", "ws3"]:
         
-        net.get(ser).cmd("python3 -m http.server 80 &")
-        print("[{}] Web server start:80".format(ser))
+         # net.get(ser).cmd("python3 -m http.server 80 &")
+         # print("[{}] Web server start:80".format(ser))
 
-    pass
+    # pass
+
+    for ser in ["ws1", "ws2", "ws3"]:
+        print("[{}] Web server start:80".format(ser))
+        net.get(ser).cmd("python3 app.py &")
+
+    for insp in ["insp"]:
+        print( "tcpdump on insp start")
+        net.get(insp).cmd("tcpdump -i insp-eth0 -w insp.pcap &")
 
 
 

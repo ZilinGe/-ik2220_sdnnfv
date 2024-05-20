@@ -1,114 +1,77 @@
-//存在duplicate 问题
-//CODE for IPChecksumFixer taken FROM COURSE DISCUSSIONS  #https://canvas.kth.se/courses/39067/discussion_topics/302524
 
-elementclass IPChecksumFixer{ $print |
-        input
-        ->SetIPChecksum
-        -> class::IPClassifier(tcp, udp, -)
-        class[0] -> Print(TCP, ACTIVE $print) -> SetTCPChecksum -> output
-        class[1] -> Print(UDP, ACTIVE $print) -> SetUDPChecksum -> output
-        class[2] -> Print(OTH, ACTIVE $print) -> output
+fromPrz, toPrz, fromDmz, toDmz :: AverageCounter;
+arpRespondInt, arpRespondExt, arpQueryInt, arpQueryExt,
+icmpExt, icmpInt, tcpInt, dropInt, dropExt, icmpEchoDropInt, icmpEchoDropExt,
+icmpReplyDropInt, icmpReplyDropExt :: Counter;
 
-}
-
-//Use before passing to ToDevice
-
-elementclass FixedForwarder{ 
-         input
-        -> Print(BEFORESTRIP, -1) 
-        ->Strip(14)	
-        ->SetIPChecksum
-        ->CheckIPHeader
-        ->IPChecksumFixer(0)
-        ->Unstrip(14)
-        ->output
-
-}
-
-define($PORT1 napt-eth1, $PORT2 napt-eth2)
 //defination
-switchInput, switchOutput, serverInput, serverOutput :: AverageCounter
-requestInArp, requestOutArp, responseInArp, responseOutArp, serviceRequest1, serviceRequest2, switchDrop, serverDrop, icmpIn, icmpOut, icmpDropIn1, icmpDropIn2, icmpDropOut1, icmpDropOut2 :: Counter
+fromInt :: FromDevice(napt-eth2, METHOD LINUX, SNIFFER false);
+fromExt :: FromDevice(napt-eth1, METHOD LINUX, SNIFFER false);
+toInt :: Queue -> toPrz -> ToDevice(napt-eth2);
+toExt :: Queue -> toDmz -> ToDevice(napt-eth1);
 
+arpReplyInt :: ARPResponder(10.0.0.1 napt-eth2);
+arpReplyExt :: ARPResponder(100.0.0.1 napt-eth1);
 
-fromPrz :: FromDevice($PORT2, METHOD LINUX, SNIFFER false);
-fromExtern :: FromDevice($PORT1, METHOD LINUX, SNIFFER false);
-toPrz :: Queue -> switchOutput -> ToDevice($PORT2);
-toExtern :: Queue -> serverOutput -> ToDevice($PORT1);
+arpRequestInt :: ARPQuerier(10.0.0.1, napt-eth2);
+arpRequestExt :: ARPQuerier(100.0.0.1, napt-eth1);
 
+ipNAT :: IPRewriter(pattern 100.0.0.1 20000-65535 - - 0 1);
+icmpNAT :: ICMPPingRewriter(pattern 100.0.0.1 20000-65535 - - 0 1);
 
-
-arpReplyPrz :: ARPResponder(10.0.0.1 10.0.0.0/24 4a:1d:9c:5f:3b:22);
-arpReplyExtern :: ARPResponder(100.0.0.1 100.0.0.0/24 58:6e:2a:3f:7d:44);
-arpRequestPrz :: ARPQuerier(10.0.0.1, 4a:1d:9c:5f:3b:22);	
-arpRequestExtern :: ARPQuerier(100.0.0.1, 58:6e:2a:3f:7d:44);
-
-
-
-IpRe :: IPRewriter(pattern 100.0.0.1 - - - 0 1);
-IcmpRe :: ICMPPingRewriter(pattern 100.0.0.1 - - - 0 1);
-
-
-
-packetClassifierPrz, packetClassifierExt :: Classifier(
-
-    12/0806 20/0001, //ARP request
-    12/0806 20/0002, //ARP respond
-    12/0800, //IP
-    - //Others
+packetClassifierInt, packetClassifierExt :: Classifier(
+    12/0806 20/0001,    //ARP request
+    12/0806 20/0002,    //ARP respond
+    12/0800,            //IP
+    - //rest
 )
 
-
-ipClassifierPrz, ipClassifierExt :: IPClassifier(
+ipClassifierInt, ipClassifierExt :: IPClassifier(
     tcp,
     icmp type echo,
     icmp type echo-reply,
     -
 )
 
-
-fromPrz -> switchInput -> packetClassifierPrz;
-
-packetClassifierPrz[0] -> requestInArp -> arpReplyPrz -> toPrz;
-packetClassifierPrz[1] -> responseInArp -> [1]arpRequestPrz;
-packetClassifierPrz[2] -> FixedForwarder -> Strip(14) -> CheckIPHeader -> ipClassifierPrz;
-packetClassifierPrz[3] -> switchDrop -> Discard;
+fromInt -> fromPrz -> packetClassifierInt;
+packetClassifierInt[0] -> arpQueryInt -> arpReplyInt -> toInt;
+packetClassifierInt[1] -> arpRespondInt -> [1]arpRequestInt;
+packetClassifierInt[2] -> Strip(14) -> CheckIPHeader -> ipClassifierInt;
+packetClassifierInt[3] -> dropInt -> Discard;
 
 
-ipClassifierPrz[0] -> serviceRequest1 -> IpRe[0] -> Print("After IPrewrit", -1) -> [0]arpRequestExtern -> toExtern;
-ipClassifierPrz[1] -> icmpIn -> IcmpRe[0] -> Print("After ICMPrewrit", -1) -> [0]arpRequestExtern -> toExtern;
-ipClassifierPrz[2] -> icmpDropIn1 -> Discard; 
-ipClassifierPrz[3] -> icmpDropIn2 -> Discard;
+ipClassifierInt[0] -> tcpInt -> ipNAT[0] -> [0]arpRequestExt -> toExt;
+ipClassifierInt[1] -> icmpInt -> icmpNAT[0] -> [0]arpRequestExt -> toExt;
+ipClassifierInt[2] -> icmpEchoDropInt -> Discard;
+ipClassifierInt[3] -> icmpReplyDropInt -> Discard;
 
+fromExt -> fromDmz -> packetClassifierExt;
+packetClassifierExt[0] -> arpQueryExt -> arpReplyExt -> toExt;
+packetClassifierExt[1] -> arpRespondExt -> [1]arpRequestExt;
+packetClassifierExt[2] -> Strip(14) -> CheckIPHeader -> ipClassifierExt;
+packetClassifierExt[3] -> dropExt -> Discard;
 
-fromExtern -> serverInput -> packetClassifierExt;
-
-packetClassifierExt[0] -> requestOutArp -> arpReplyExtern -> toExtern;
-packetClassifierExt[1] -> responseOutArp -> [1]arpRequestExtern;
-packetClassifierExt[2] -> FixedForwarder -> Strip(14) -> CheckIPHeader -> ipClassifierExt;
-packetClassifierExt[3] -> serverDrop -> Discard;
-
-ipClassifierExt[0] -> serviceRequest2 ->IpRe[1] -> [0]arpRequestPrz -> toPrz;
-ipClassifierExt[2] -> icmpOut -> IcmpRe[1] -> [0]arpRequestPrz -> toPrz;
-ipClassifierExt[3] -> icmpDropOut1  -> Discard;
-ipClassifierExt[1] -> icmpDropOut2 -> Discard;
-
-DriverManager(pause , print > /opt/pox/ext/results/napt.report  "
-     =================== NAPT Report ===================
-        Input Packet rate (pps): $(add $(switchInput.rate) $(serverInput.rate))
-        Output Packet rate (pps): $(add $(switchOutput.rate) $(serverOutput.rate))
-
-      Total # of   input packets: $(add $(switchInput.count) $(serverInput.count))
-      Total # of  output packets: $(add $(switchOutput.count) $(serverOutput.count))
-   
-      Total # of   ARP  requests: $(add $(requestInArp.count) $(requestOutArp.count))
-      Total # of   ARP responses: $(add $(responseInArp.count) $(responseOutArp.count))
-
-      Total # of service packets: $(add $(serviceRequest1.count) $(serviceRequest2.count) ) 
-      Total # of    ICMP report:  $(add $(icmpIn.count) $(icmpOut.count))   
-      Total # of dropped packets: $(add $(switchDrop.count) $(serverDrop.count) $(icmpDropIn1.count) $(icmpDropIn2.count) $(icmpDropOut1.count) $(icmpDropOut2.count))   
-     =================================================
+ipClassifierExt[0] -> ipNAT[1] -> [0]arpRequestInt -> toInt;
+ipClassifierExt[1] -> icmpEchoDropExt -> Discard;
+ipClassifierExt[2] -> icmpExt -> icmpNAT[1] -> [0]arpRequestInt -> toInt;
+ipClassifierExt[3] -> icmpReplyDropExt -> Discard;
 
 
 
-" );
+
+DriverManager(wait, print > /home/ik2220/version1/click_results/napt.report "
+        ===================== NAPT Report ====================
+        Input Packet Rate (pps): $(add $(fromPrz.rate) $(fromDmz.rate))
+        Output Packet Rate(pps): $(add $(toPrz.rate) $(toDmz.rate))
+
+        Total # of input packets: $(add $(fromPrz.count) $(fromDmz.count))
+        Total # of output packets: $(add $(toPrz.count) $(toDmz.count))
+
+        Total # of ARP request packets: $(add $(arpQueryInt.count) $(arpQueryExt.count))
+        Total # of ARP reply packets: $(add $(arpRespondInt.count) $(arpRespondExt.count))
+
+        Total # of service requests packets: $(add $(tcpInt.count))
+        Total # of ICMP packets: $(add $(icmpInt.count) $(icmpExt.count))
+        Total # of dropped packets: $(add $(dropInt.count) $(dropExt.count) $(icmpEchoDropInt.count) $(icmpEchoDropExt.count) $(icmpReplyDropInt.count) $(icmpReplyDropExt.count))
+        ======================================================",
+        stop);

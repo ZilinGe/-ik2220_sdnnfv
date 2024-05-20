@@ -49,12 +49,12 @@ class Firewall (l2_learning.LearningSwitch):
                 return False
 
 
-    def protocol_check(self, rule, tcp_udp):
+    def protocol_check(self, rule, tcp_icmp):
         if rule == 'any':
             return True
 
-        #tcp_udp = 'TCP'or'UDP' or None
-        if rule != tcp_udp:
+        #tcp_udp = 'TCP'or'ICMP' or None
+        if rule != tcp_icmp:
             print("No such protocol")
             return False 
             
@@ -81,19 +81,19 @@ class Firewall (l2_learning.LearningSwitch):
         ### COMPLETE THIS PART ###
         
         ipp_payload = ip_packet.payload
-        tcp_udp = ""
+        tcp_icmp = ""
         tcp_src_port = -1
         tcp_dst_port = -1
         
         #check packet type
         if ip_packet.find('tcp'):
-            tcp_udp = 'TCP'
+            tcp_icmp = 'TCP'
             tcp_src_port = ip_packet.find('tcp').srcport
             tcp_dst_port = ip_packet.find('tcp').dstport
             
             
-        if ip_packet.find('udp'):
-            tcp_udp = 'UDP'
+        if ip_packet.find('icmp'):
+            tcp_icmp = 'ICMP'
         
         
             
@@ -132,9 +132,6 @@ class Firewall (l2_learning.LearningSwitch):
           #tcp_dest_port = rules[5]
           #allow_or_block = rules[6]
           
-
-
-          print("\n")
           print("checking individual conditions")
           print(f"src address: {src_addr}")
           print(f"dst address: {dst_addr}")
@@ -150,7 +147,7 @@ class Firewall (l2_learning.LearningSwitch):
           
           if (
           rule[0] == input_port 
-          and self.protocol_check(rule[1],tcp_udp) 
+          and self.protocol_check(rule[1],tcp_icmp) 
           and self.subnet_check(rule[2], src_addr) 
           and self.tcp_port_check(rule[3], tcp_src_port) 
           and self.subnet_check(rule[4],   dst_addr) 
@@ -192,17 +189,17 @@ class Firewall (l2_learning.LearningSwitch):
         self.connection.send(msg)
         return
         
-    def install_block(self, packet, received_port):
-        match_obj = of.ofp_match.from_packet(packet, received_port)
-        msg = of.ofp_flow_mod()
-        msg.match = match_obj
+    # def install_block(self, packet, received_port):
+    #     match_obj = of.ofp_match.from_packet(packet, received_port)
+    #     msg = of.ofp_flow_mod()
+    #     msg.match = match_obj
 
-        msg.idle_timeout = 10
-        msg.hard_timeout = 30
-        #msg.actions.append(of.ofp_action_output(port=of.OFPP_NONE)) useless
+    #     msg.idle_timeout = 10
+    #     msg.hard_timeout = 30
+    #     #msg.actions.append(of.ofp_action_output(port=of.OFPP_NONE)) useless
 
-        self.connection.send(msg)
-        return
+    #     self.connection.send(msg)
+    #     return
 
 
     def _handle_PacketIn(self, event):
@@ -230,12 +227,12 @@ class Firewall (l2_learning.LearningSwitch):
                 log.info(f"\n{self.name} : Packet allowed by the Firewall")
                 self.install_allow(packet, received_port)
             
-            else:
-                log.warning(f"\n{self.name} : Packet blocked by the Firewall!")
-                self.install_block(packet, received_port)
-                print(packet)
-                print("\n")
-                return
+            # else:
+            #     log.warning(f"\n{self.name} : Packet blocked by the Firewall!")
+            #     self.install_block(packet, received_port)
+            #     print(packet)
+            #     print("\n")
+            #     return
         
         # print(packet)
         # print("\n")

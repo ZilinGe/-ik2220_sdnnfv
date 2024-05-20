@@ -29,9 +29,18 @@ class controller (object):
 
     def napt_launch_click(self, dpid):
         cmd = "sudo click /opt/pox/ext/napt.click &"
-        print("Started Click napt")
         p = subprocess.Popen(cmd, shell=True)
-        log.info("Launched click with PID:" +str(p.pid)+"\n")
+        log.info("Launched napt click with PID:" +str(p.pid)+"\n")
+
+    def ids_launch_click(self, dpid):
+        cmd = "sudo click /opt/pox/ext/ids.click &"
+        p = subprocess.Popen(cmd, shell=True)
+        log.info("Launched ids click with PID:" +str(p.pid)+"\n")
+
+    def lb_launch_click(self, dpid):
+        cmd = "sudo click /opt/pox/ext/lb1.click &"
+        p = subprocess.Popen(cmd, shell=True)
+        log.info("Launched lb click with PID:" +str(p.pid)+"\n")
         
         
     
@@ -53,7 +62,7 @@ class controller (object):
         # For instance: self.devices[len(self.devices)] = fw
         dpid = event.dpid
 
-        if dpid == 1 or dpid == 2 or dpid == 3 or dpid == 4 or dpid == 7 or dpid == 8 or dpid == 9:
+        if dpid == 1 or dpid == 2 or dpid == 3 or dpid == 4 or dpid == 8 :
             l2_instance = LearningSwitch(event.connection, False)
             self.devices[len(self.devices)] = l2_instance
             # print(dpid, l2_instance.macToPort, self.devices)
@@ -66,10 +75,22 @@ class controller (object):
             fw2 = networkFirewalls.FW2(event.connection)
             self.devices[len(self.devices)] = fw2
 
-        # if dpid == 9:
-        #     p = click_wrapper.start_click("/opt/pox/ext/napt.click", -1, "/opt/pox/ext/ids_tmp/napt.out", "/opt/pox/ext/ids_tmp/napt.err" )
-        #     self.napt_launch_click(event.dpid)
-        #     log.info("\nStarting a Click process for NAPT Switch %d" % event.dpid)
+        if dpid == 7:
+            # p = click_wrapper.start_click("/opt/pox/ext/lb.click", "", "/opt/pox/ext/ids_tmp/lb1.out", "/opt/pox/ext/ids_tmp/lb1.err")
+            self.lb_launch_click(event.dpid)
+            log.info("\nStarting click process for LB Switch = %d" % event.dpid)
+            
+
+        # if dpid == 8:
+        #     # p = click_wrapper.start_click("/opt/pox/ext/ids.click", -1, "/opt/pox/ext/ids_tmp/ids.out", "/opt/pox/ext/ids_tmp/ids.err" )
+        #     self.ids_launch_click(event.dpid)
+        #     log.info("\nStarting a Click process for IDS Switch %d" % event.dpid)
+        #     # log.info("\nLaunched click with PID:" +str(p.pid)+"\n")
+
+        if dpid == 9:
+            # p = click_wrapper.start_click("/opt/pox/ext/napt.click", -1, "/opt/pox/ext/ids_tmp/napt.out", "/opt/pox/ext/ids_tmp/napt.err" )
+            self.napt_launch_click(event.dpid)
+            log.info("\nStarting a Click process for NAPT Switch %d" % event.dpid)
 
         return
 
